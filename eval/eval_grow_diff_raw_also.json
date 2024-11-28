@@ -1,0 +1,38 @@
+{
+    "large_pretrained_model": {
+        "model_name": "EleutherAI/pythia-1.4b",
+        "avg_eval_loss": 2.3054211520686856,
+        "rouge1": 0.6853391736235986,
+        "rouge2": 0.32128371891905444,
+        "rougeL": 0.5038953190786202,
+        "rougeLsum": 0.6371187167359453,
+        "exact_match": 0.0
+    },
+    "grown_small_finetuned_model": {
+        "model_name": "models/pythia_410m_r=8_0.0001_gsm8k",
+        "avg_eval_loss": 1.615178224538198,
+        "rouge1": 0.7243727661703053,
+        "rouge2": 0.38287018511992443,
+        "rougeL": 0.5595850218302523,
+        "rougeLsum": 0.6756127096752513,
+        "exact_match": 0.0
+    },
+    "large_pretrained_model_with_grown_diff": {
+        "model_name": "EleutherAI/pythia-1.4b",
+        "avg_eval_loss": 2.3366662907542675,
+        "rouge1": 0.6830291753393563,
+        "rouge2": 0.31548976081494917,
+        "rougeL": 0.49803524650389974,
+        "rougeLsum": 0.6354667358303242,
+        "exact_match": 0.0
+    },
+    "large_finetuned_model": {
+        "model_name": "models/pythia_1.4b_r=8_0.0001_gsm8k",
+        "avg_eval_loss": 1.3932632484967138,
+        "rouge1": 0.7428953056110491,
+        "rouge2": 0.4261632984134436,
+        "rougeL": 0.5991924608509679,
+        "rougeLsum": 0.7012397289254941,
+        "exact_match": 0.0
+    }
+}

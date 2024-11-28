@@ -3,10 +3,45 @@ import torch
 import matplotlib.pyplot as plt
 from grow import grow_depth, grow_width
 from typing import Union, List
+import evaluate
+from accelerate import Accelerator
+import psutil
+import subprocess
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, GPTNeoXForCausalLM
-from peft import PeftModel
+from peft import PeftModel, get_peft_model
 from datasets import load_metric
+
+
+def print_memory_usage():
+    print()
+    # GPU memory usage (if CUDA is available)
+    if torch.cuda.is_available():
+
+        # print(torch.cuda.memory_summary())
+
+        # Run nvidia-smi on the command line to get the GPU memory usage
+        
+        # Call nvidia-smi and capture the output
+        result = subprocess.run(['nvidia-smi'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        
+        # Print the output (stdout contains the nvidia-smi output)
+        print(result.stdout)
+
+
+        # gpu_memory_allocated = torch.cuda.memory_allocated() / (1024**2)  # Convert to MB
+        # gpu_memory_reserved = torch.cuda.memory_reserved() / (1024**2)  # Convert to MB
+        # print("CUDA device : %s" % torch.cuda.get_device_name(0))
+        # print(f"GPU Memory Allocated: {gpu_memory_allocated:.2f} MB")
+        # print(f"GPU Memory Reserved: {gpu_memory_reserved:.2f} MB")
+    else:
+        print("CUDA is not available. GPU memory not in use.")
+
+    # CPU memory usage
+    cpu_memory = psutil.virtual_memory()
+    print(f"CPU Memory Used: {cpu_memory.used / (1024**2):.2f} MB")
+    print(f"Total CPU Memory: {cpu_memory.total / (1024**2):.2f} MB")
+    print(f"Available CPU Memory: {cpu_memory.available / (1024**2):.2f} MB")
 
 
 def generate_instruction_answer(
@@ -79,7 +114,7 @@ def generate_example_callback(model: AutoModelForCausalLM, tokenizer: AutoTokeni
 
 
 
-def load_model(model_name: str, path: str = None):
+def load_model(model_name: str, path: str = None, retain_peft: bool = False):
     """
     Load a model from a path and model name
 
@@ -93,16 +128,18 @@ def load_model(model_name: str, path: str = None):
     base_model = GPTNeoXForCausalLM.from_pretrained(
         model_name,
         low_cpu_mem_usage=True,
-        return_dict=True,
+        # return_dict=True,
         # torch_dtype=torch.float16,
-        # device_map=0,
+        device_map="auto",
     )
     if path is not None:
-        model = PeftModel.from_pretrained(base_model, path)
-        model = model.merge_and_unload()
-    else:
-        model = base_model
-    return model
+        # model = PeftModel.from_pretrained(base_model, path)
+        base_model = PeftModel.from_pretrained(base_model, path)
+
+        if not retain_peft:
+            base_model = base_model.merge_and_unload()
+    
+    return base_model
     
 
 def plot_losses(alphas, losses, save_path="interpolation_loss.png", **kwargs):
@@ -129,40 +166,21 @@ def flatten_rouge_scores(rouge_scores):
             flattened_scores[f'{score_type}_high_{stat}'] = getattr(aggregate_score.high, stat)
     return flattened_scores
 
-def evaluate_model_loss(model, test_dl, device, tokenizer):
+
+
+
+def evaluate_model(model, test_dl, accelerator, tokenizer):
     model.eval()
     total_loss = 0
+    rouge = evaluate.load('rouge')
+    exact_match = evaluate.load('exact_match')
 
-    for batch in tqdm(test_dl):
-        batch = {k: v.to(device) for k, v in batch.items()}
+    if accelerator.is_main_process:
+        test_iter = tqdm(test_dl, desc="Evaluating")
+    else:
+        test_iter = test_dl
 
-        with torch.no_grad():
-            outputs = model(**batch)
-            loss = outputs.loss
-            total_loss += loss.item()
-
-            # generated_ids = torch.argmax(outputs.logits, dim=-1)
-            # generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-            # reference_texts = tokenizer.batch_decode(labels, skip_special_tokens=True)
-            # rouge.add_batch(predictions=generated_texts, references=reference_texts)
-    
-    avg_eval_loss = total_loss / len(test_dl)
-    # final_rouge_scores = rouge.compute()
-    # flattened_rouge_scores = flatten_rouge_scores(final_rouge_scores)
-    print(f"Average Evaluation Loss: {avg_eval_loss}")
-    # print("ROUGE Scores:", flattened_rouge_scores)
-
-    # return avg_eval_loss, flattened_rouge_scores
-    return avg_eval_loss
-
-
-def evaluate_model_loss_rouge(model, test_dl, device, tokenizer):
-    model.eval()
-    total_loss = 0
-    rouge = load_metric('rouge')
-
-    for batch in tqdm(test_dl):
-        batch = {k: v.to(device) for k, v in batch.items()}
+    for batch in test_iter:
         labels = batch["labels"].detach().cpu().numpy()
 
         with torch.no_grad():
@@ -173,13 +191,79 @@ def evaluate_model_loss_rouge(model, test_dl, device, tokenizer):
             generated_ids = torch.argmax(outputs.logits, dim=-1)
             generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
             reference_texts = tokenizer.batch_decode(labels, skip_special_tokens=True)
+            
             rouge.add_batch(predictions=generated_texts, references=reference_texts)
+            exact_match.add_batch(predictions=generated_texts, references=reference_texts)
     
     avg_eval_loss = total_loss / len(test_dl)
     final_rouge_scores = rouge.compute()
-    flattened_rouge_scores = flatten_rouge_scores(final_rouge_scores)
-    print(f"Average Evaluation Loss: {avg_eval_loss}")
-    print("ROUGE Scores:", flattened_rouge_scores)
+    final_exact_match_scores = exact_match.compute()
 
-    return avg_eval_loss, flattened_rouge_scores
-    # return flattened_rouge_scores
+    if accelerator.is_main_process:
+        print(f"Average Evaluation Loss: {avg_eval_loss}")
+        print("ROUGE Scores:", final_rouge_scores)
+        print("Exact Match Scores:", final_exact_match_scores)
+
+    metrics = {
+        **final_rouge_scores,
+        **final_exact_match_scores
+    }
+
+    return avg_eval_loss, metrics
+
+
+
+# def evaluate_model_loss(model, test_dl, device, tokenizer):
+#     model.eval()
+#     total_loss = 0
+
+#     for batch in tqdm(test_dl):
+#         batch = {k: v.to(device) for k, v in batch.items()}
+
+#         with torch.no_grad():
+#             outputs = model(**batch)
+#             loss = outputs.loss
+#             total_loss += loss.item()
+
+#             # generated_ids = torch.argmax(outputs.logits, dim=-1)
+#             # generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+#             # reference_texts = tokenizer.batch_decode(labels, skip_special_tokens=True)
+#             # rouge.add_batch(predictions=generated_texts, references=reference_texts)
+    
+#     avg_eval_loss = total_loss / len(test_dl)
+#     # final_rouge_scores = rouge.compute()
+#     # flattened_rouge_scores = flatten_rouge_scores(final_rouge_scores)
+#     print(f"Average Evaluation Loss: {avg_eval_loss}")
+#     # print("ROUGE Scores:", flattened_rouge_scores)
+
+#     # return avg_eval_loss, flattened_rouge_scores
+#     return avg_eval_loss
+
+
+# def evaluate_model_loss_rouge(model, test_dl, device, tokenizer):
+#     model.eval()
+#     total_loss = 0
+#     rouge = load_metric('rouge')
+
+#     for batch in tqdm(test_dl):
+#         batch = {k: v.to(device) for k, v in batch.items()}
+#         labels = batch["labels"].detach().cpu().numpy()
+
+#         with torch.no_grad():
+#             outputs = model(**batch)
+#             loss = outputs.loss
+#             total_loss += loss.item()
+
+#             generated_ids = torch.argmax(outputs.logits, dim=-1)
+#             generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+#             reference_texts = tokenizer.batch_decode(labels, skip_special_tokens=True)
+#             rouge.add_batch(predictions=generated_texts, references=reference_texts)
+    
+#     avg_eval_loss = total_loss / len(test_dl)
+#     final_rouge_scores = rouge.compute()
+#     flattened_rouge_scores = flatten_rouge_scores(final_rouge_scores)
+#     print(f"Average Evaluation Loss: {avg_eval_loss}")
+#     print("ROUGE Scores:", flattened_rouge_scores)
+
+#     return avg_eval_loss, flattened_rouge_scores
+#     # return flattened_rouge_scores

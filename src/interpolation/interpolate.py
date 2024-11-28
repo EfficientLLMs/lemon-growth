@@ -146,13 +146,14 @@ class Interpolate:
         rouges.append(rouge)
 
     @staticmethod
-    def interpolate_models_by_weights_loss_rouge(
+    def interpolate_evaluate_models(
         model_1: PeftModel, 
         model_2: PeftModel, 
         n_interpolations: int,
         dataloader: torch.utils.data.DataLoader, 
-        device: torch.device, 
+        # device: torch.device, 
         tokenizer: AutoTokenizer,
+        accelerator
     ) -> List[List[float]]:
         losses = []
         alphas = []
@@ -163,7 +164,14 @@ class Interpolate:
             print('-'*50)
             print(f"Interpolating with alpha={alpha}")
             model_interpolated = Interpolate._interpolate_weights_model(model_1, model_2, alpha)
-            Interpolate._loss_tracking_callback(model_interpolated, dataloader, device, tokenizer, losses, rouges)
+
+            eval_loss, metrics = eval_utils.evaluate_model(
+                model_interpolated, dataloader, accelerator, tokenizer
+            )
+            losses.append(eval_loss)
+            rouges.append(metrics['rougeL'])
+
+            # Interpolate._loss_tracking_callback(model_interpolated, dataloader, device, tokenizer, losses, rouges)
         return losses, alphas, rouges
     
 

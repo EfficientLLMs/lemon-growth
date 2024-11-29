@@ -7,6 +7,7 @@ import evaluate
 from accelerate import Accelerator
 import psutil
 import subprocess
+from lm_eval import evaluator
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, GPTNeoXForCausalLM
 from peft import PeftModel, get_peft_model
@@ -211,6 +212,69 @@ def evaluate_model(model, test_dl, accelerator, tokenizer):
 
     return avg_eval_loss, metrics
 
+
+def evaluate_model_llm_eval(
+    model_path: str,
+    checkpoint: str,
+    tasks: list,
+    tokenizer_path: str = None,  # If different from base_model_path
+    num_fewshot: int = 0,
+    batch_size: int = 4,
+    parallelize: bool = False,
+):
+    """
+    Simple evaluation of a model.
+    """
+
+    accelerator = Accelerator()
+    
+    # Load tokenizer
+    tokenizer_path = tokenizer_path or model_path
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
+    # Load model
+    print("Loading model...")
+    if checkpoint is not None:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            revision=checkpoint,
+            # torch_dtype=torch.bfloat16,
+            device_map="auto",
+            trust_remote_code=True
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            # torch_dtype=torch.bfloat16,
+            device_map="auto",
+            trust_remote_code=True
+        )
+
+    # Prepare model for evaluation
+    model = accelerator.prepare(model)
+    
+    # Save model to temporary directory
+    import tempfile
+    import os
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        print(f"Saving model to {tmp_dir}...")
+        model.save_pretrained(tmp_dir)
+        tokenizer.save_pretrained(tmp_dir)
+        
+        # Run evaluation
+        print("Starting evaluation...")
+        results = evaluator.simple_evaluate(
+            model="hf",
+            model_args=f"pretrained={tmp_dir},parallelize={parallelize},logits_cache=False",
+            tasks=tasks,
+            num_fewshot=num_fewshot,
+            batch_size=batch_size,
+            # no_cache=True
+        )
+    
+    return results['results']
 
 
 # def evaluate_model_loss(model, test_dl, device, tokenizer):

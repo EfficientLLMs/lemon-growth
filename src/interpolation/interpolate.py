@@ -3,10 +3,9 @@ from transformers import AutoModelForCausalLM, GPTNeoXForCausalLM, AutoTokenizer
 import torch
 import copy
 from datasets import load_metric
-
 import argparse
 from typing import Union, List
-
+import shutil
 import eval_utils
 from grow import grow_depth, grow_width
 
@@ -144,6 +143,59 @@ class Interpolate:
 
         losses.append(loss)
         rouges.append(rouge)
+
+    @staticmethod
+    def interpolate_evaluate_models_llm(
+        model_1_path: str,
+        model_2_path: str,
+        n_interpolations: int,
+        callback: callable,
+        **kwargs
+    ):
+        """
+        Interpolate between two models n_interpolation times and call the callback function with the 
+        interpolated model. Define the ratios as equally spaced between 0 and 1 based on n_interpolations.
+        For instance, if n_interpolations=5, the ratios will be [0, 0.25, 0.5, 0.75, 1]
+
+        Args:
+            model_1: First model
+            model_2: Second model
+            n_interpolations: Number of interpolations
+            results_json_path: Path to save the results
+            callback: Function to call with the interpolated model
+        """
+
+        # Load the models
+        model_1 = AutoModelForCausalLM.from_pretrained(model_1_path)
+        model_2 = AutoModelForCausalLM.from_pretrained(model_2_path)
+
+        results_json = {}
+        alphas = []
+
+        for i in range(n_interpolations):
+            alpha = i / (n_interpolations - 1)
+            alphas.append(alpha)
+            print('-'*50)
+            print(f"Interpolating with {alpha} * model_1 + {1 - alpha} * model_2")
+            model_interpolated = Interpolate._interpolate_weights_model(model_1, model_2, alpha)
+
+            # Save the model to a temporary directory
+            model_interpolated.save_pretrained(f'./temp_interpolated_model_{i}')
+
+            # Call the callback function
+            results_interpolation = callback(
+                f'./temp_interpolated_model_{i}', 
+                **kwargs
+            )
+
+            # Remove the temporary directory
+            shutil.rmtree(f'./temp_interpolated_model_{i}')
+
+            # Save the results
+            results_json[alpha] = results_interpolation
+        
+        return alphas, results_json
+
 
     @staticmethod
     def interpolate_evaluate_models(

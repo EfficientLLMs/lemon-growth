@@ -10,7 +10,7 @@ import gc
 import os
 
 from interpolate import Interpolate
-from grow_utils import *
+from src.interpolation.grow_utils import *
 
 
 if __name__ == "__main__":
@@ -202,8 +202,8 @@ if __name__ == "__main__":
     print("Evaluated large pretrained model with grown difference")
     print(eval_results["large_pretrained_model_with_grown_diff"])
 
-    del large_pretrained_model
-    clean_memory()
+    # del large_pretrained_model
+    # clean_memory()
 
     # 3. Load and evaluate the large finetuned model
 

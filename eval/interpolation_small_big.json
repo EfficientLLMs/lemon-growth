@@ -1,0 +1,92 @@
+{
+    "0.0": {
+        "lambada_openai": {
+            "alias": "lambada_openai",
+            "perplexity,none": 130.9596703698591,
+            "perplexity_stderr,none": 5.5010038464418844,
+            "acc,none": 0.22705220260042694,
+            "acc_stderr,none": 0.005836466732850104
+        },
+        "paloma_dolma-v1_5": {
+            "alias": "Dolma V1.5",
+            "word_perplexity,none": 162.569458254935,
+            "word_perplexity_stderr,none": "N/A",
+            "byte_perplexity,none": 2.1880171560472355,
+            "byte_perplexity_stderr,none": "N/A",
+            "bits_per_byte,none": 1.1296240502178703,
+            "bits_per_byte_stderr,none": "N/A"
+        }
+    },
+    "0.25": {
+        "lambada_openai": {
+            "alias": "lambada_openai",
+            "perplexity,none": 180555228438.94675,
+            "perplexity_stderr,none": 28818423902.964462,
+            "acc,none": 0.0007762468464971861,
+            "acc_stderr,none": 0.0003880104050205306
+        },
+        "paloma_dolma-v1_5": {
+            "alias": "Dolma V1.5",
+            "word_perplexity,none": 285217787340.23676,
+            "word_perplexity_stderr,none": "N/A",
+            "byte_perplexity,none": 57.77893584803393,
+            "byte_perplexity_stderr,none": "N/A",
+            "bits_per_byte,none": 5.852471727988542,
+            "bits_per_byte_stderr,none": "N/A"
+        }
+    },
+    "0.5": {
+        "lambada_openai": {
+            "alias": "lambada_openai",
+            "perplexity,none": 40873648352.828094,
+            "perplexity_stderr,none": 6634804490.100207,
+            "acc,none": 0.0007762468464971861,
+            "acc_stderr,none": 0.0003880104050205306
+        },
+        "paloma_dolma-v1_5": {
+            "alias": "Dolma V1.5",
+            "word_perplexity,none": 14435820806.061905,
+            "word_perplexity_stderr,none": "N/A",
+            "byte_perplexity,none": 36.51653988999228,
+            "byte_perplexity_stderr,none": "N/A",
+            "bits_per_byte,none": 5.190478164698995,
+            "bits_per_byte_stderr,none": "N/A"
+        }
+    },
+    "0.75": {
+        "lambada_openai": {
+            "alias": "lambada_openai",
+            "perplexity,none": 1430466170.3780444,
+            "perplexity_stderr,none": 161568600.38307583,
+            "acc,none": 0.0,
+            "acc_stderr,none": 0.0
+        },
+        "paloma_dolma-v1_5": {
+            "alias": "Dolma V1.5",
+            "word_perplexity,none": 14513350.983149005,
+            "word_perplexity_stderr,none": "N/A",
+            "byte_perplexity,none": 12.63155958939755,
+            "byte_perplexity_stderr,none": "N/A",
+            "bits_per_byte,none": 3.6589608712243935,
+            "bits_per_byte_stderr,none": "N/A"
+        }
+    },
+    "1.0": {
+        "lambada_openai": {
+            "alias": "lambada_openai",
+            "perplexity,none": 10.78048890889528,
+            "perplexity_stderr,none": 0.3204954380297517,
+            "acc,none": 0.5163982146322531,
+            "acc_stderr,none": 0.006962230326368326
+        },
+        "paloma_dolma-v1_5": {
+            "alias": "Dolma V1.5",
+            "word_perplexity,none": 53.258730086610896,
+            "word_perplexity_stderr,none": "N/A",
+            "byte_perplexity,none": 1.8429492950685369,
+            "byte_perplexity_stderr,none": "N/A",
+            "bits_per_byte,none": 0.8820163787497055,
+            "bits_per_byte_stderr,none": "N/A"
+        }
+    }
+}

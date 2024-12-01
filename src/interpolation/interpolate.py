@@ -150,6 +150,7 @@ class Interpolate:
         model_2_path: str,
         n_interpolations: int,
         callback: callable,
+        skip_eval: bool = False,
         **kwargs
     ):
         """
@@ -163,6 +164,7 @@ class Interpolate:
             n_interpolations: Number of interpolations
             results_json_path: Path to save the results
             callback: Function to call with the interpolated model
+            skip_eval: Skip evaluation if True
         """
 
         # Load the models
@@ -177,22 +179,24 @@ class Interpolate:
             alphas.append(alpha)
             print('-'*50)
             print(f"Interpolating with {alpha} * model_1 + {1 - alpha} * model_2")
-            model_interpolated = Interpolate._interpolate_weights_model(model_1, model_2, alpha)
+            
+            if not skip_eval:
+                model_interpolated = Interpolate._interpolate_weights_model(model_1, model_2, alpha)
 
-            # Save the model to a temporary directory
-            model_interpolated.save_pretrained(f'./temp_interpolated_model_{i}')
+                # Save the model to a temporary directory
+                model_interpolated.save_pretrained(f'./temp_interpolated_model_{i}')
 
-            # Call the callback function
-            results_interpolation = callback(
-                f'./temp_interpolated_model_{i}', 
-                **kwargs
-            )
+                # Call the callback function
+                results_interpolation = callback(
+                    f'./temp_interpolated_model_{i}', 
+                    **kwargs
+                )
 
-            # Remove the temporary directory
-            shutil.rmtree(f'./temp_interpolated_model_{i}')
+                # Remove the temporary directory
+                shutil.rmtree(f'./temp_interpolated_model_{i}')
 
-            # Save the results
-            results_json[alpha] = results_interpolation
+                # Save the results
+                results_json[alpha] = results_interpolation
         
         return alphas, results_json
 
